@@ -2,7 +2,7 @@
 
 Code for Paper *Transformer-Assisted Genetic Programming for Symbolic Regression*
 
-![image]([[https://github.com/xiaoxuh/pggp_codes/blob/main/framework.png](https://github.com/xiaoxuh/pggp_codes/blob/main/framework.png)])
+![image](https://github.com/xiaoxuh/pggp_codes/blob/main/framework.png)
 
 ### PGGP
 Pre-trained Model Guided Genetic Programming (PGGP) method is designed to assist the initialization and mutation of GP.
