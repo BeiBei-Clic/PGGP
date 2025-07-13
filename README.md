@@ -1,6 +1,6 @@
 # Transformer-Assisted Genetic Programming for Symbolic Regression
 
-Code for Paper *Transformer-Assisted Genetic Programming for Symbolic Regression*
+Codes for Paper *Transformer-Assisted Genetic Programming for Symbolic Regression*
 
 ![image](https://github.com/xiaoxuh/pggp_codes/blob/main/framework.png)
 
@@ -15,7 +15,7 @@ Pre-trained Model Guided Genetic Programming (PGGP) method is designed to assist
 
 You should create a new folder 'weights' and download the Transformer weights from https://github.com/SymposiumOrganization/NeuralSymbolicRegressionThatScales/tree/main
 
-Then, run PGGP by:
+After download the model, you can run PGGP by:
 ```
 python main.py
 ```
