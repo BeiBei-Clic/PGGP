@@ -194,24 +194,42 @@ def protectedAtan(x):
 
 
 def convert_to_list(trimmed_eq, accurate_constant=False):
+    # 定义一个函数，将修剪后的方程转换为列表格式
+    # trimmed_eq: 修剪后的方程表达式（列表形式）
+    # accurate_constant: 是否使用精确常数的标志，默认为False
 
     token_list= []
+    # 创建一个空的标记列表，用于存储变量名
+
     for i in range(n_variables):
+        # 遍历变量数量n_variables次
         token_list.append('x_'+str(i+1))
+        # 将变量名"x_1", "x_2", ...添加到token_list中
 
     for i, x in enumerate(trimmed_eq):
+        # 遍历trimmed_eq列表中的每个元素及其索引
+        # i是索引，x是当前元素
+        
         if x == 'constant' :
+            # 如果当前元素是'constant'（常数标记）
             if not accurate_constant:
+                # 如果不使用精确常数
                 trimmed_eq[i]='rand505'
+                # 将当前元素替换为'rand505'（可能是占位符或特殊标记）
 
         elif  x.startswith('x_'):
+            # 如果当前元素以'x_'开头（变量标记）
             index=int(x[-1])
+            # 提取变量名中的数字部分并转换为整数
             trimmed_eq[i]='x_'+str(index-1)
+            # 将索引减1后重新构造变量名（例如"x_2"变为"x_1"）
         else:
-
+            # 对于其他所有元素
             trimmed_eq[i] = x
+            # 保持原样不变
 
     return trimmed_eq
+    # 返回转换后的表达式列表
 
 
 
@@ -268,45 +286,68 @@ def get_creator():
     return pset, creator
 
 def init_individual(pset, creator, trimmed_eq):
+    # 定义一个函数，用于初始化个体（遗传算法中的一个解）
+    # pset: 原语集，包含函数和终端符号
+    # creator: DEAP库中的创建器，用于创建个体和适应度对象
+    # trimmed_eq: 修剪后的方程表达式（前缀形式的列表）
 
     plist=[]
+    # 创建一个空列表，用于存储原语树的节点
 
     for t in trimmed_eq:
+        # 遍历修剪后的方程表达式中的每个元素
         if t in pset.mapping:
+            # 如果当前元素t在原语集的映射中（即是一个函数符号，如add、mul等）
             plist.append(pset.mapping[t])
+            # 将该函数符号对应的原语添加到plist中
 
         elif t in [ '-3','-2','-1','0', '1', '2', '3', '4', '5']:
-
+            # 如果当前元素t是一个小整数常量
             if t not in pset.terminals[pset.ret]:
+                # 如果该常量还不在原语集的终端符号中
                 pset.addTerminal(float(t), name=t)
+                # 将该常量作为浮点数添加到原语集的终端符号中
                 term = pset.terminals[pset.ret][-1]
-
+                # 获取刚刚添加的终端符号
             else:
+                # 如果该常量已经在原语集的终端符号中
                 for i, term in enumerate(pset.terminals[pset.ret]):
+                    # 遍历终端符号列表
                     if term.name == t:
+                        # 找到名称匹配的终端符号
                         break
                 term = pset.terminals[pset.ret][i]()
+                # 获取该终端符号的实例
 
             plist.append(term)
-
+            # 将终端符号添加到plist中
 
         elif t=='rand505':
-
+            # 如果当前元素是'rand505'（可能是占位符或特殊标记）
             index_rand505=n_variables
+            # 使用变量数量作为索引
             term = pset.terminals[pset.ret][index_rand505]()
+            # 获取指定索引位置的终端符号实例
 
             plist.append(term)
+            # 将终端符号添加到plist中
 
         else:
+            # 对于其他情况（应该是数值常量）
             value = float(t)
+            # 将当前元素转换为浮点数
 
             pset.addTerminal(value, name=t)
+            # 将该数值添加到原语集的终端符号中
 
             plist.append(pset.terminals[pset.ret][-1])
+            # 将刚刚添加的终端符号添加到plist中
 
     individual = creator.Individual(gp.PrimitiveTree(plist))
+    # 使用plist创建原语树，然后用该原语树创建个体
 
     return individual
+    # 返回创建的个体
 
 def is_complex(number):
     """
@@ -578,7 +619,7 @@ def main(filename):
     # 记录开始时间
     start_time = time.time()
     # 运行遗传算法进化过程
-    pop, log, rmse_mid, test_rmse_mid, generations = algorithms.eaSimple(n_variables,pop, pset, toolbox, test_X,test_Y,0.5, 0.2, ngen=300, stats=mstats,
+    pop, log = algorithms.eaSimple(pop, toolbox, 0.5, 0.2, 300, stats=mstats,
                                    halloffame=hof, verbose=True)
     # 记录结束时间
     end_time = time.time()
