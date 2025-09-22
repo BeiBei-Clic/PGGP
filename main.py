@@ -632,6 +632,49 @@ def main(filename):
 
     # 编译名人堂中的最佳个体
     func = toolbox.compile(expr=hof[0])
+    
+    # 输出最佳个体信息
+    print("\n=== 最佳个体信息 ===")
+    print(f"最佳个体表达式: {hof[0]}")
+    print(f"最佳个体适应度 (RMSE): {hof[0].fitness.values[0]}")
+    
+    # 在测试集上评估最佳个体
+    test_predictions = []
+    for x in test_X:
+        try:
+            pred = func(*x)
+            test_predictions.append(pred)
+        except:
+            test_predictions.append(0)  # 出现错误时默认值为0
+    
+    test_mse = np.mean((np.array(test_predictions) - test_Y) ** 2)
+    test_rmse = np.sqrt(test_mse)
+    print(f"测试集 MSE: {test_mse}")
+    print(f"测试集 RMSE: {test_rmse}")
+    
+    # 创建包含更多最佳个体的名人堂（例如前5个）
+    hof_multi = tools.HallOfFame(5)
+    hof_multi.update(pop)
+    
+    print("\n=== 前5个最佳个体 ===")
+    for i, individual in enumerate(hof_multi):
+        print(f"\n第 {i+1} 个最佳个体:")
+        print(f"  表达式: {individual}")
+        print(f"  适应度 (RMSE): {individual.fitness.values[0]}")
+        
+        # 在测试集上评估每个个体
+        predictions = []
+        for x in test_X:
+            try:
+                pred = toolbox.compile(expr=individual)(*x)
+                predictions.append(pred)
+            except:
+                predictions.append(0)  # 出现错误时默认值为0
+                
+        mse = np.mean((np.array(predictions) - test_Y) ** 2)
+        rmse = np.sqrt(mse)
+        print(f"  测试集 MSE: {mse}")
+        print(f"  测试集 RMSE: {rmse}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Transformer-GP')
