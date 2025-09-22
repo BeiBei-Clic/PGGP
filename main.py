@@ -19,10 +19,14 @@ import omegaconf
 import sympy
 from src.nesymres.dclasses import FitParams, BFGSParams
 from backpropagation import *
+from sklearn.metrics import mean_squared_error
 import warnings
 
 warnings.filterwarnings("ignore" )
 
+
+def root_mean_squared_error(y_true, y_pred):
+    return np.sqrt(mean_squared_error(y_true, y_pred))
 
 
 def transformer_init():
@@ -343,7 +347,7 @@ def mutate(individual, pset, creator, toolbox, p_subtree=0.05):
 
 def main(filename):
 
-    dataset_path = "../benchmark_dataset/"
+    dataset_path = "benchmark_dataset/"
 
     file_path = os.path.join(dataset_path, filename + '.txt')
     global n_variables
@@ -369,10 +373,17 @@ def main(filename):
 
         except Exception as e:
             file_contents[filename] = f"Error reading file: {e}"
+    else:
+        print(f"找不到训练数据集文件: {file_path}")
+        return
+
+    if len(input_X) == 0:
+        print("训练数据集为空，请检查文件格式是否正确")
+        return
 
     n_variables= len(input_X[0])
 
-    test_dataset_path = "../benchmark_test/"
+    test_dataset_path = "benchmark_test/"
     file_path = os.path.join(test_dataset_path, filename + '.txt')
 
     test_X = []
@@ -392,6 +403,9 @@ def main(filename):
 
         except Exception as e:
             file_contents[filename] = f"Error reading file: {e}"
+    else:
+        print(f"找不到测试数据集文件: {file_path}")
+        return
 
     test_X = np.array(test_X)
     test_Y = np.array(test_Y)
@@ -473,6 +487,6 @@ def main(filename):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Transformer-GP')
-    parser.add_argument('dataset_name', type=str, default='Constant-1')
+    parser.add_argument('dataset_name', type=str, default='Simple-1', nargs='?')
     args = parser.parse_args()
     main(args.dataset_name)
