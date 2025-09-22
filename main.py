@@ -135,6 +135,86 @@ def get_res_transformer(X, y, BFGS, first_call=False):
         return prefix_symbol_list
 
 
+def format_expression(expr_str):
+    # 定义一个函数，用于格式化表达式字符串，将常数保留一位小数
+    import re
+    
+    # 使用正则表达式匹配浮点数并格式化为一位小数
+    def format_float(match):
+        num = float(match.group())
+        return f"{num:.1f}"
+    
+    # 匹配浮点数的正则表达式
+    formatted = re.sub(r'\d+\.\d+', format_float, str(expr_str))
+    return formatted
+
+
+def prefix_to_infix(expr):
+    # 将前缀表达式转换为中缀表达式
+    import re
+    
+    # 如果是DEAP个体，先转换为字符串
+    if not isinstance(expr, str):
+        expr_str = str(expr)
+    else:
+        expr_str = expr
+    
+    # 移除外部的多余空格
+    expr_str = expr_str.strip()
+    
+    # 如果表达式为空或无效，直接返回原表达式
+    if not expr_str:
+        return expr_str
+    
+    # 多轮处理，确保嵌套表达式正确转换
+    original_str = ""
+    rounds = 0
+    max_rounds = 10  # 防止无限循环
+    
+    while original_str != expr_str and rounds < max_rounds:
+        original_str = expr_str
+        
+        # 处理add函数 add(x, y) -> (x+y)
+        expr_str = re.sub(r'add\(\s*([^,]+?)\s*,\s*([^,]+?)\s*\)', r'(\1+\2)', expr_str)
+        
+        # 处理sub函数 sub(x, y) -> (x-y)
+        expr_str = re.sub(r'sub\(\s*([^,]+?)\s*,\s*([^,]+?)\s*\)', r'(\1-\2)', expr_str)
+        
+        # 处理mul函数 mul(x, y) -> (x*y)
+        expr_str = re.sub(r'mul\(\s*([^,]+?)\s*,\s*([^,]+?)\s*\)', r'(\1*\2)', expr_str)
+        
+        # 处理div函数 div(x, y) -> (x/y)
+        expr_str = re.sub(r'div\(\s*([^,]+?)\s*,\s*([^,]+?)\s*\)', r'(\1/\2)', expr_str)
+        
+        # 处理pow函数 pow(x, y) -> x^y
+        # 注意：这里需要特殊处理，因为^是右结合的
+        expr_str = re.sub(r'pow\(\s*([^,]+?)\s*,\s*([^,]+?)\s*\)', r'\1^\2', expr_str)
+        
+        # 处理一元函数（保持原样）
+        unary_functions = ['exp', 'ln', 'sqrt', 'abs', 'sin', 'cos', 'tan', 'asin', 'acos', 'atan']
+        for func in unary_functions:
+            pattern = rf'{func}\(\s*([^,]+?)\s*\)'
+            expr_str = re.sub(pattern, rf'{func}(\1)', expr_str)
+        
+        rounds += 1
+    
+    # 特殊处理：为表达式中包含运算符的部分添加括号以确保优先级
+    # 为+/-运算添加括号保护，如果它们在*/运算的上下文中
+    expr_str = re.sub(r'(\d|\w|\))\s*\+\s*(\d|\w|\()', r'\1+\2', expr_str)
+    expr_str = re.sub(r'(\d|\w|\))\s*-\s*(\d|\w|\()', r'\1-\2', expr_str)
+    
+    # 格式化数字，保留一位小数
+    def format_number(match):
+        try:
+            num = float(match.group())
+            return f"{num:.1f}"
+        except:
+            return match.group()
+    
+    expr_str = re.sub(r'\d+\.\d+', format_number, expr_str)
+    
+    return expr_str
+
 
 def protectedMul(left, right):
     try:
@@ -401,42 +481,76 @@ def evalSymbReg(individual, pset, toolbox):
     return res,
 
 def mutReplace(individual, pset, toolbox, creator):
+    # 定义一个变异替换函数，用于执行基于Transformer模型引导的语义变异操作
+    # individual: 需要变异的个体（DEAP中的PrimitiveTree对象）
+    # pset: 原语集，包含函数和终端符号
+    # toolbox: DEAP工具箱，包含各种操作函数
+    # creator: DEAP创建器，用于创建新的个体对象
 
-    global  input_X
+    global input_X
+    # 声明使用全局变量input_X（训练数据的输入特征）
+
     node_index = random.randrange(len(individual))
+    # 随机选择个体中的一个节点索引作为变异点
+
     if len(individual) == 1:
+        # 如果个体只有一个节点（退化情况）
         return gp.mutUniform(individual, expr=toolbox.expr_mut, pset=pset)
+        # 使用标准的均匀变异方法，返回变异后的个体
+
     while individual[node_index].arity == 0:
+        # 当选中的节点是终端符号（没有子节点）时循环
         node_index = random.randrange(len(individual))
+        # 重新随机选择一个节点索引，直到选中一个函数节点
+
     try:
+        # 尝试执行语义反向传播计算
         semantic = backpropogation(individual, pset, (input_X, input_Y), node_index)
+        # 通过语义反向传播算法计算在指定节点处需要的语义值，
+        # 以改善整个个体的适应度
     except OverflowError:
+        # 如果计算过程中出现数值溢出错误
         return gp.mutUniform(individual, expr=toolbox.expr_mut, pset=pset)
+        # 回退到标准的均匀变异方法
+
     if semantic == 'nan':
+        # 如果语义值为NaN（无效值）
         return gp.mutUniform(individual, expr=toolbox.expr_mut, pset=pset)
+        # 回退到标准的均匀变异方法
 
     try:
-        symbol_list, prediceted_equation,total_c, bfgs_time= get_res_transformer(input_X, semantic, BFGS=True)
-
+        # 尝试使用Transformer模型生成符合目标语义的新表达式
+        symbol_list, prediceted_equation, total_c, bfgs_time = get_res_transformer(input_X, semantic, BFGS=True)
+        # 调用get_res_transformer函数：
+        # input_X: 输入特征数据
+        # semantic: 目标语义值
+        # BFGS=True: 启用BFGS优化
+        # 返回符号列表、预测方程、总系数和BFGS优化时间
     except ValueError:
+        # 如果在Transformer模型调用过程中出现数值错误
         return gp.mutUniform(individual, expr=toolbox.expr_mut, pset=pset)
+        # 回退到标准的均匀变异方法
 
     if symbol_list is None:
+        # 如果Transformer模型未能生成有效的符号列表
         return gp.mutUniform(individual, expr=toolbox.expr_mut, pset=pset)
+        # 回退到标准的均匀变异方法
 
+    # 如果成功获取了Transformer生成的符号列表
+    symbol_list = convert_to_list(symbol_list, accurate_constant=True)
+    # 将符号列表转换为适合DEAP使用的格式，accurate_constant=True表示使用精确常数
 
-
-    symbol_list=convert_to_list(symbol_list,accurate_constant=True)
-
-
-    new_subtree=init_individual(pset, creator, symbol_list)
+    new_subtree = init_individual(pset, creator, symbol_list)
+    # 使用转换后的符号列表创建新的子树（个体的一部分）
 
     CT_slice = individual.searchSubtree(node_index)
+    # 找到在选定节点处的子树切片（在原个体中的位置）
 
     individual[CT_slice] = new_subtree
+    # 用新生成的子树替换原个体中的对应部分
 
     return individual,
-
+    # 返回变异后的个体（注意返回的是元组形式，符合DEAP要求）
 def mutate(individual, pset, creator, toolbox, p_subtree=0.05):
 
     if random.random() < p_subtree:
@@ -619,7 +733,7 @@ def main(filename):
     # 记录开始时间
     start_time = time.time()
     # 运行遗传算法进化过程
-    pop, log = algorithms.eaSimple(pop, toolbox, 0.5, 0.2, 300, stats=mstats,
+    pop, log = algorithms.eaSimple(pop, toolbox, 0.5, 0.2,300, stats=mstats,
                                    halloffame=hof, verbose=True)
     # 记录结束时间
     end_time = time.time()
@@ -635,7 +749,8 @@ def main(filename):
     
     # 输出最佳个体信息
     print("\n=== 最佳个体信息 ===")
-    print(f"最佳个体表达式: {hof[0]}")
+    print(f"最佳个体表达式（前缀）: {format_expression(hof[0])}")
+    print(f"最佳个体表达式（中缀）: {prefix_to_infix(format_expression(hof[0]))}")
     print(f"最佳个体适应度 (RMSE): {hof[0].fitness.values[0]}")
     
     # 在测试集上评估最佳个体
@@ -659,7 +774,8 @@ def main(filename):
     print("\n=== 前5个最佳个体 ===")
     for i, individual in enumerate(hof_multi):
         print(f"\n第 {i+1} 个最佳个体:")
-        print(f"  表达式: {individual}")
+        print(f"  表达式（前缀）: {format_expression(individual)}")
+        print(f"  表达式（中缀）: {prefix_to_infix(format_expression(individual))}")
         print(f"  适应度 (RMSE): {individual.fitness.values[0]}")
         
         # 在测试集上评估每个个体
