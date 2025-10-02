@@ -14,6 +14,7 @@ from deap import creator
 from deap import tools
 from deap import gp
 from sklearn.metrics import mean_squared_error
+from sklearn.preprocessing import StandardScaler
 import torch
 import json, re
 import omegaconf
@@ -362,10 +363,26 @@ def main(filename=None, seed=8346):
     total_samples = len(all_X)
     train_size = int(total_samples * 0.8)
     
-    input_X = all_X[:train_size]
-    input_Y = all_Y[:train_size]
+    train_X = np.array(all_X[:train_size])
+    train_Y = np.array(all_Y[:train_size])
     test_X = np.array(all_X[train_size:])
     test_Y = np.array(all_Y[train_size:])
+
+    # 数据标准化
+    scaler_X = StandardScaler()
+    scaler_Y = StandardScaler()
+    
+    # 对输入特征进行标准化
+    train_X_scaled = scaler_X.fit_transform(train_X)
+    test_X_scaled = scaler_X.transform(test_X)
+    
+    # 对目标变量进行标准化
+    train_Y_scaled = scaler_Y.fit_transform(train_Y.reshape(-1, 1)).flatten()
+    test_Y_scaled = scaler_Y.transform(test_Y.reshape(-1, 1)).flatten()
+    
+    # 转换为列表格式供后续使用
+    input_X = train_X_scaled.tolist()
+    input_Y = train_Y_scaled.tolist()
 
     n_variables = len(input_X[0])
 
@@ -378,8 +395,12 @@ def main(filename=None, seed=8346):
 
     total_variables = ["x_1", "x_2", "x_3"][:n_variables]
 
-    X_dict = {x: test_X[:, idx] for idx, x in enumerate(total_variables)}
-    y_pred = np.array(sympy.lambdify(",".join(total_variables), equation)(**X_dict))
+    # 使用标准化的测试数据进行预测
+    X_dict = {x: test_X_scaled[:, idx] for idx, x in enumerate(total_variables)}
+    y_pred_scaled = np.array(sympy.lambdify(",".join(total_variables), equation)(**X_dict))
+    
+    # 反标准化预测结果
+    y_pred = scaler_Y.inverse_transform(y_pred_scaled.reshape(-1, 1)).flatten()
 
     transformer_rmse = math.sqrt(mean_squared_error(test_Y.ravel(), y_pred.ravel()))
 
@@ -481,8 +502,10 @@ def main(filename=None, seed=8346):
 
     func = toolbox.compile(expr=hof[0])
     
-    # 计算测试集MSE
-    test_predictions = [func(*row) for row in test_X]
+    # 计算测试集MSE - 使用标准化的测试数据
+    test_predictions_scaled = [func(*row) for row in test_X_scaled]
+    # 反标准化预测结果
+    test_predictions = scaler_Y.inverse_transform(np.array(test_predictions_scaled).reshape(-1, 1)).flatten()
     test_mse = mean_squared_error(test_Y, test_predictions)
     
     return {
