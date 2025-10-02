@@ -13,6 +13,7 @@ from deap import base
 from deap import creator
 from deap import tools
 from deap import gp
+from sklearn.metrics import mean_squared_error
 import torch
 import json, re
 import omegaconf
@@ -239,7 +240,7 @@ def init_individual(pset, creator, trimmed_eq):
 
             plist.append(pset.terminals[pset.ret][-1])
 
-    individual = creator.Individual(gp.PrimitiveTree(plist))
+    individual = creator.Individual(plist)
 
     return individual
 
@@ -341,60 +342,46 @@ def mutate(individual, pset, creator, toolbox, p_subtree=0.05):
         return gp.mutUniform(individual, expr=toolbox.expr_mut, pset=pset)
 
 
-def main(filename):
-
-    dataset_path = "../benchmark_dataset/"
-
-    file_path = os.path.join(dataset_path, filename + '.txt')
+def main(filename=None):
+    # 默认使用指定的数据集
+    if filename is None:
+        file_path = "/home/xyh/pggp/dataset/Feynman_with_units/I.6.2"
+    else:
+        dataset_path = "../benchmark_dataset/"
+        file_path = os.path.join(dataset_path, filename + '.txt')
+    
     global n_variables
     global input_X
     global input_Y
     file_contents = {}
 
-    input_X = []
-    input_Y = []
+    all_X = []
+    all_Y = []
 
     if os.path.isfile(file_path):
-        try:
-            with open(file_path, 'r') as file:
+        with open(file_path, 'r') as file:
+            count = 0
+            for line in file:
+                if count >= 100:  # 只读取前100条数据
+                    break
+                
+                data = line.strip().split()
+                x = list(map(float, data[:-1]))
+                y = float(data[-1])
+                all_X.append(x)
+                all_Y.append(y)
+                count += 1
 
-                for line in file:
+    # 按80%训练集和20%测试集分割数据
+    total_samples = len(all_X)
+    train_size = int(total_samples * 0.8)
+    
+    input_X = all_X[:train_size]
+    input_Y = all_Y[:train_size]
+    test_X = np.array(all_X[train_size:])
+    test_Y = np.array(all_Y[train_size:])
 
-                    data = line.strip().split()
-
-                    x = list(map(float, data[:-1]))
-                    y = float(data[-1])
-                    input_X.append(x)
-                    input_Y.append(y)
-
-        except Exception as e:
-            file_contents[filename] = f"Error reading file: {e}"
-
-    n_variables= len(input_X[0])
-
-    test_dataset_path = "../benchmark_test/"
-    file_path = os.path.join(test_dataset_path, filename + '.txt')
-
-    test_X = []
-    test_Y = []
-
-    if os.path.isfile(file_path):
-        try:
-            with open(file_path, 'r') as file:
-
-                for line in file:
-                    data = line.strip().split()
-
-                    x = list(map(float, data[:-1]))
-                    y = float(data[-1])
-                    test_X.append(x)
-                    test_Y.append(y)
-
-        except Exception as e:
-            file_contents[filename] = f"Error reading file: {e}"
-
-    test_X = np.array(test_X)
-    test_Y = np.array(test_Y)
+    n_variables = len(input_X[0])
 
 
     pset, creator = get_creator()
@@ -408,7 +395,7 @@ def main(filename):
     X_dict = {x: test_X[:, idx] for idx, x in enumerate(total_variables)}
     y_pred = np.array(sympy.lambdify(",".join(total_variables), equation)(**X_dict))
 
-    transformer_rmse = root_mean_squared_error(test_Y.ravel(), y_pred.ravel())
+    transformer_rmse = math.sqrt(mean_squared_error(test_Y.ravel(), y_pred.ravel()))
 
     # early stop
     if transformer_rmse < 1e-10:
@@ -422,10 +409,8 @@ def main(filename):
     # set toolbox
     toolbox = base.Toolbox()
     toolbox.register("expr", gp.genHalfAndHalf, pset=pset, min_=2, max_=6)
-    toolbox.register("random_individual", tools.initIterate, creator.Individual, toolbox.expr)
-    toolbox.register("individual", init_individual, pset, creator, trimmed_eq=trimmed_eq)
+    toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
-    toolbox.register("random_population", tools.initRepeat, list, toolbox.random_individual)
     toolbox.register("expr_mut", gp.genFull, min_=0, max_=2)
     # toolbox.register("population", init_population, list, creator.Individual, eq=trimmed_eq, primitive_set=pset, num_individuals=20)
     toolbox.register("compile", gp.compile, pset=pset)
@@ -439,12 +424,7 @@ def main(filename):
     np.random.seed(8346)
     random.seed(8346)
 
-    pop = []
-    transformer_init=toolbox.population(n=1)
-    for i in range(20):
-        pop+=copy.deepcopy(transformer_init)
-
-    pop+=toolbox.random_population(n=200-len(pop))
+    pop = toolbox.population(n=2)
 
 
     hof = tools.HallOfFame(1)
@@ -458,7 +438,7 @@ def main(filename):
 
 
     start_time = time.time()
-    pop, log, rmse_mid, test_rmse_mid, generations = algorithms.eaSimple(n_variables,pop, pset, toolbox, test_X,test_Y,0.5, 0.2, ngen=300, stats=mstats,
+    pop, log = algorithms.eaSimple(pop, toolbox, 0.5, 0.2, ngen=3, stats=mstats,
                                    halloffame=hof, verbose=True)
     end_time = time.time()
 
@@ -473,6 +453,6 @@ def main(filename):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Transformer-GP')
-    parser.add_argument('dataset_name', type=str, default='Constant-1')
+    parser.add_argument('--dataset_name', type=str, default=None, help='数据集名称，如果不指定则使用默认的Feynman数据集')
     args = parser.parse_args()
     main(args.dataset_name)
