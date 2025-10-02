@@ -84,7 +84,7 @@ def get_res_transformer(X, y, BFGS, first_call=False):
     if BFGS:
         try:
             prefix_symbol_list = fitfunc(X, y, BFGS)
-        except ValueError:
+        except (ValueError, RuntimeError):
             return [None, None]
 
         final_equation = model.get_equation()
@@ -144,13 +144,9 @@ def protectedAcos(x):
 
 def protectedAtan(x):
     try:
-        # Calculate atan
         return math.atan(x)
-    except Exception as e:
-        # Handle exceptions (e.g., invalid input)
-        print(f"Error: {e}")
-        # Return a default value or handle the error as needed
-        return None
+    except Exception:
+        return 99999
 
 
 def convert_to_list(trimmed_eq, accurate_constant=False):
@@ -265,14 +261,7 @@ def evalSymbReg(individual, pset, toolbox):
             try:
                 try:
                     result=func(*x)
-                except AttributeError:
-                    print('AttributeError: NoneType object has no attribute __import__')
-                    return wrong_mark,
-                except ValueError:
-                    print('ValueError: math domain error')
-                    return wrong_mark,
-                except ZeroDivisionError:
-                    print('ZeroDivisionError: float division by zero')
+                except (AttributeError, ValueError, ZeroDivisionError):
                     return wrong_mark,
 
                 if is_complex(result):
@@ -281,8 +270,6 @@ def evalSymbReg(individual, pset, toolbox):
                     tmp = (func(*x) - input_Y[i]) ** 2
                     sqerrors.append(tmp)
             except TypeError:
-                print('TypeError: cannot unpack non-iterable float object')
-
                 return wrong_mark,
 
         except OverflowError:
@@ -290,7 +277,6 @@ def evalSymbReg(individual, pset, toolbox):
     try:
         res = math.sqrt(math.fsum(sqerrors) / len(input_X))
     except TypeError:
-        print("TypeError: cannot convert complex to float")
         return  wrong_mark,
 
     return res,
@@ -313,7 +299,7 @@ def mutReplace(individual, pset, toolbox, creator):
     try:
         symbol_list, prediceted_equation,total_c, bfgs_time= get_res_transformer(input_X, semantic, BFGS=True)
 
-    except ValueError:
+    except (ValueError, RuntimeError):
         return gp.mutUniform(individual, expr=toolbox.expr_mut, pset=pset)
 
     if symbol_list is None:
@@ -342,12 +328,12 @@ def mutate(individual, pset, creator, toolbox, p_subtree=0.05):
         return gp.mutUniform(individual, expr=toolbox.expr_mut, pset=pset)
 
 
-def main(filename=None):
+def main(filename=None, seed=8346):
     # 默认使用指定的数据集
     if filename is None:
         file_path = "/home/xyh/pggp/dataset/Feynman_with_units/I.6.2"
     else:
-        dataset_path = "../benchmark_dataset/"
+        dataset_path = "benchmark_dataset/"
         file_path = os.path.join(dataset_path, filename + '.txt')
     
     global n_variables
@@ -421,10 +407,10 @@ def main(filename=None):
     toolbox.decorate("mate", gp.staticLimit(key=operator.attrgetter("height"), max_value=17))
     toolbox.decorate("mutate", gp.staticLimit(key=operator.attrgetter("height"), max_value=17))
 
-    np.random.seed(8346)
-    random.seed(8346)
+    np.random.seed(seed)
+    random.seed(seed)
 
-    pop = toolbox.population(n=2)
+    pop = toolbox.population(n=300)
 
 
     hof = tools.HallOfFame(1)
@@ -437,18 +423,74 @@ def main(filename=None):
     mstats.register("max", np.max)
 
 
+    # 手动实现进化算法来跟踪适应度变化
+    fitness_trend = []
+    
     start_time = time.time()
-    pop, log = algorithms.eaSimple(pop, toolbox, 0.5, 0.2, ngen=3, stats=mstats,
-                                   halloffame=hof, verbose=True)
+    
+    # 评估初始种群
+    for ind in pop:
+        ind.fitness.values = toolbox.evaluate(ind)
+    
+    # 记录初始代的最佳适应度
+    current_best = min([ind.fitness.values[0] for ind in pop])
+    fitness_trend.append(current_best)
+    hof.update(pop)
+    
+    # 进化过程
+    for gen in range(200):  # ngen=200
+        # 选择
+        offspring = toolbox.select(pop, len(pop))
+        offspring = list(map(toolbox.clone, offspring))
+        
+        # 交叉和变异
+        for child1, child2 in zip(offspring[::2], offspring[1::2]):
+            if random.random() < 0.5:  # 交叉概率
+                toolbox.mate(child1, child2)
+                del child1.fitness.values
+                del child2.fitness.values
+        
+        for mutant in offspring:
+            if random.random() < 0.2:  # 变异概率
+                toolbox.mutate(mutant)
+                del mutant.fitness.values
+        
+        # 评估需要评估的个体
+        invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
+        for ind in invalid_ind:
+            ind.fitness.values = toolbox.evaluate(ind)
+        
+        # 替换种群
+        pop[:] = offspring
+        
+        # 更新名人堂
+        hof.update(pop)
+        
+        # 记录当前代的最佳适应度
+        current_best = min([ind.fitness.values[0] for ind in pop])
+        fitness_trend.append(current_best)
+        
+        # 每50代输出一次进度
+        if (gen + 1) % 50 == 0 or gen == 0:
+            print(f"Generation {gen+1}: Best fitness = {current_best}")
+    
     end_time = time.time()
+    training_time = end_time - start_time
 
-    training_time=end_time - start_time
-
-    last_generation_fitness = np.min([ind.fitness.values[0] for ind in pop])
-
+    last_generation_fitness = min([ind.fitness.values[0] for ind in pop])
 
     func = toolbox.compile(expr=hof[0])
-
+    
+    # 计算测试集MSE
+    test_predictions = [func(*row) for row in test_X]
+    test_mse = mean_squared_error(test_Y, test_predictions)
+    
+    return {
+        'test_mse': test_mse,
+        'fitness_trend': fitness_trend,
+        'training_time': training_time,
+        'best_individual': str(hof[0])
+    }
 
 
 if __name__ == "__main__":
