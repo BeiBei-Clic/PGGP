@@ -524,14 +524,30 @@ def main(filename=None, seed=8346, data_count=1000, generations=200, population_
 
     last_generation_fitness = min([ind.fitness.values[0] for ind in pop])
 
-    func = toolbox.compile(expr=hof[0])
+    # 编译最佳个体，添加异常处理
+    try:
+        func = toolbox.compile(expr=hof[0])
+    except (SyntaxError, ValueError, TypeError) as e:
+        print(f"编译错误: {e}，使用简单线性函数")
+        func = lambda *args: args[0] if args else 0
     
-    # 计算测试集MSE - 使用标准化后的数据
-    test_predictions_scaled = [func(*row) for row in test_X_scaled]
-    test_mse = mean_squared_error(test_Y_scaled, test_predictions_scaled)
+    # 计算测试集RMSE - 使用标准化后的数据，添加异常值处理
+    test_predictions_scaled = []
+    for row in test_X_scaled:
+        try:
+            pred = func(*row)
+            # 检查异常值
+            if np.isnan(pred) or np.isinf(pred) or np.iscomplex(pred):
+                pred = 999999999
+            test_predictions_scaled.append(pred)
+        except:
+            test_predictions_scaled.append(999999999)
+    
+    test_rmse = np.sqrt(mean_squared_error(test_Y_scaled, test_predictions_scaled))
+    print(f"测试集RMSE: {test_rmse:.6f}")
     
     return {
-        'test_mse': test_mse,
+        'test_rmse': test_rmse,
         'fitness_trend': fitness_trend,
         'training_time': training_time,
         'best_individual': str(hof[0])
