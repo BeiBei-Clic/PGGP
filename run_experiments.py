@@ -22,14 +22,14 @@ def run_experiments():
             result = main(filename=dataset, seed=seed)
             result['seed'] = seed
             results.append(result)
-            print(f"完成 (MSE: {result['test_mse']:.6f})")
+            print(f"完成 (RMSE: {result['test_rmse']:.6f})")
 
         if len(results) == 0:
             print(f"数据集 {dataset} 所有运行都失败")
             continue
             
-        # 计算测试集MSE的分位数
-        test_mses = [r['test_mse'] for r in results]
+        # 计算测试集RMSE的分位数
+        test_mses = [r['test_rmse'] for r in results]
         q25 = np.percentile(test_mses, 25)
         q50 = np.percentile(test_mses, 50)  # 中位数
         q75 = np.percentile(test_mses, 75)
@@ -55,21 +55,21 @@ def run_experiments():
             'selected_experiments': {
                 'q25': {
                     'seed': results[idx_q25]['seed'],
-                    'test_mse': results[idx_q25]['test_mse'],
+                    'test_rmse': results[idx_q25]['test_rmse'],
                     'fitness_trend': results[idx_q25]['fitness_trend'],
                     'training_time': results[idx_q25]['training_time'],
                     'best_individual': results[idx_q25]['best_individual']
                 },
                 'q50': {
                     'seed': results[idx_q50]['seed'],
-                    'test_mse': results[idx_q50]['test_mse'],
+                    'test_rmse': results[idx_q50]['test_rmse'],
                     'fitness_trend': results[idx_q50]['fitness_trend'],
                     'training_time': results[idx_q50]['training_time'],
                     'best_individual': results[idx_q50]['best_individual']
                 },
                 'q75': {
                     'seed': results[idx_q75]['seed'],
-                    'test_mse': results[idx_q75]['test_mse'],
+                    'test_rmse': results[idx_q75]['test_rmse'],
                     'fitness_trend': results[idx_q75]['fitness_trend'],
                     'training_time': results[idx_q75]['training_time'],
                     'best_individual': results[idx_q75]['best_individual']
@@ -83,9 +83,9 @@ def run_experiments():
             json.dump(dataset_results, f, indent=2, ensure_ascii=False)
         
         print(f"数据集 {dataset} 结果已保存到 {output_file}")
-        print(f"  Q25 MSE: {q25:.6f} (种子 {results[idx_q25]['seed']})")
-        print(f"  Q50 MSE: {q50:.6f} (种子 {results[idx_q50]['seed']})")
-        print(f"  Q75 MSE: {q75:.6f} (种子 {results[idx_q75]['seed']})")
+        print(f"  Q25 RMSE: {q25:.6f} (种子 {results[idx_q25]['seed']})")
+        print(f"  Q50 RMSE: {q50:.6f} (种子 {results[idx_q50]['seed']})")
+        print(f"  Q75 RMSE: {q75:.6f} (种子 {results[idx_q75]['seed']})")
         print()
 
 if __name__ == "__main__":
