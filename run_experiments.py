@@ -19,15 +19,11 @@ def run_experiments():
         # 运行10次实验
         for seed in seeds:
             print(f"  运行种子 {seed}", end=" ... ")
-            try:
-                result = main(filename=dataset, seed=seed)
-                result['seed'] = seed
-                results.append(result)
-                print(f"完成 (MSE: {result['test_mse']:.6f})")
-            except Exception as e:
-                print(f"失败: {str(e)[:50]}...")
-                continue
-        
+            result = main(filename=dataset, seed=seed)
+            result['seed'] = seed
+            results.append(result)
+            print(f"完成 (MSE: {result['test_mse']:.6f})")
+
         if len(results) == 0:
             print(f"数据集 {dataset} 所有运行都失败")
             continue
