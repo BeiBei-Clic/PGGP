@@ -274,10 +274,15 @@ def is_complex(number):
 
 
 def evalSymbReg(individual, pset, toolbox):
-
-    func = toolbox.compile(expr=individual)
-    sqerrors=[]
     wrong_mark=999999999
+    
+    # 处理表达式编译错误，包括语法错误和过于复杂的嵌套
+    try:
+        func = toolbox.compile(expr=individual)
+    except (SyntaxError, RecursionError, MemoryError):
+        return wrong_mark,
+    
+    sqerrors=[]
     for i, x in enumerate(input_X):
         try:
             try:
@@ -420,10 +425,8 @@ def main(filename=None, seed=8346):
     X_dict = {x: test_X_scaled[:, idx] for idx, x in enumerate(total_variables)}
     y_pred_scaled = np.array(sympy.lambdify(",".join(total_variables), equation)(**X_dict))
     
-    # 反标准化预测结果
-    y_pred = scaler_Y.inverse_transform(y_pred_scaled.reshape(-1, 1)).flatten()
-
-    transformer_rmse = math.sqrt(mean_squared_error(test_Y.ravel(), y_pred.ravel()))
+    # 使用标准化后的数据计算MSE
+    transformer_rmse = math.sqrt(mean_squared_error(test_Y_scaled.ravel(), y_pred_scaled.ravel()))
 
     # early stop
     if transformer_rmse < 1e-10:
@@ -436,7 +439,7 @@ def main(filename=None, seed=8346):
 
     # set toolbox
     toolbox = base.Toolbox()
-    toolbox.register("expr", gp.genHalfAndHalf, pset=pset, min_=2, max_=6)
+    toolbox.register("expr", gp.genHalfAndHalf, pset=pset, min_=2, max_=4)
     toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
     toolbox.register("expr_mut", gp.genFull, min_=0, max_=2)
@@ -446,8 +449,8 @@ def main(filename=None, seed=8346):
     toolbox.register("select", tools.selTournament, tournsize=3)
     toolbox.register("mate", gp.cxOnePoint)
     toolbox.register("mutate", mutate, pset=pset, creator=creator, toolbox=toolbox, p_subtree=0.025)
-    toolbox.decorate("mate", gp.staticLimit(key=operator.attrgetter("height"), max_value=17))
-    toolbox.decorate("mutate", gp.staticLimit(key=operator.attrgetter("height"), max_value=17))
+    toolbox.decorate("mate", gp.staticLimit(key=operator.attrgetter("height"), max_value=10))
+    toolbox.decorate("mutate", gp.staticLimit(key=operator.attrgetter("height"), max_value=10))
 
     np.random.seed(seed)
     random.seed(seed)
@@ -523,11 +526,9 @@ def main(filename=None, seed=8346):
 
     func = toolbox.compile(expr=hof[0])
     
-    # 计算测试集MSE - 使用标准化的测试数据
+    # 计算测试集MSE - 使用标准化后的数据
     test_predictions_scaled = [func(*row) for row in test_X_scaled]
-    # 反标准化预测结果
-    test_predictions = scaler_Y.inverse_transform(np.array(test_predictions_scaled).reshape(-1, 1)).flatten()
-    test_mse = mean_squared_error(test_Y, test_predictions)
+    test_mse = mean_squared_error(test_Y_scaled, test_predictions_scaled)
     
     return {
         'test_mse': test_mse,
