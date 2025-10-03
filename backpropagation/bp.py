@@ -117,7 +117,10 @@ def backpropogation(individual, pset, dataset, target_idx):
         smt = [[]for i in range(len(X))]
         for i, subtr in enumerate(subtrs):
             # print(subtr, type(subtr))
-            func = gp.compile(expr=subtr, pset=pset)
+            try:
+                func = gp.compile(expr=subtr, pset=pset)
+            except SyntaxError:
+                return 'nan'
             for j, data in enumerate(X):
               if is_complex(data):
                   return 'nan'

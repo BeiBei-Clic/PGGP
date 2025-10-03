@@ -449,8 +449,8 @@ def main(filename=None, seed=8346, data_count=1000, generations=200, population_
     toolbox.register("select", tools.selTournament, tournsize=3)
     toolbox.register("mate", gp.cxOnePoint)
     toolbox.register("mutate", mutate, pset=pset, creator=creator, toolbox=toolbox, p_subtree=0.025)
-    toolbox.decorate("mate", gp.staticLimit(key=operator.attrgetter("height"), max_value=17))
-    toolbox.decorate("mutate", gp.staticLimit(key=operator.attrgetter("height"), max_value=17))
+    toolbox.decorate("mate", gp.staticLimit(key=operator.attrgetter("height"), max_value=5))
+    toolbox.decorate("mutate", gp.staticLimit(key=operator.attrgetter("height"), max_value=5))
 
     np.random.seed(seed)
     random.seed(seed)
