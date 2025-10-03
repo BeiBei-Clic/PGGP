@@ -375,7 +375,7 @@ def main(filename=None, seed=8346):
         with open(file_path, 'r') as file:
             count = 0
             for line in file:
-                if count >= 100:  # 只读取前100条数据
+                if count >= 1000:  # 只读取前1000条数据
                     break
                 
                 data = line.strip().split()
