@@ -22,8 +22,26 @@ import sympy
 from src.nesymres.dclasses import FitParams, BFGSParams
 from backpropagation import *
 import warnings
+import logging
+import sys
+from contextlib import contextmanager
 
-warnings.filterwarnings("ignore" )
+warnings.filterwarnings("ignore")
+# 禁用PyTorch Lightning的日志输出
+logging.getLogger("pytorch_lightning").setLevel(logging.ERROR)
+# 禁用特定的升级警告
+warnings.filterwarnings("ignore", message="Lightning automatically upgraded your loaded checkpoint")
+
+@contextmanager
+def suppress_stdout():
+    """临时禁用标准输出"""
+    with open(os.devnull, "w") as devnull:
+        old_stdout = sys.stdout
+        sys.stdout = devnull
+        try:
+            yield
+        finally:
+            sys.stdout = old_stdout
 
 
 
