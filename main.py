@@ -349,7 +349,7 @@ def main(filename=None, seed=8346):
         with open(file_path, 'r') as file:
             count = 0
             for line in file:
-                if count >= 100:  # 只读取前100条数据
+                if count >= 1000:  # 只读取前1000条数据
                     break
                 
                 data = line.strip().split()
@@ -398,11 +398,9 @@ def main(filename=None, seed=8346):
     # 使用标准化的测试数据进行预测
     X_dict = {x: test_X_scaled[:, idx] for idx, x in enumerate(total_variables)}
     y_pred_scaled = np.array(sympy.lambdify(",".join(total_variables), equation)(**X_dict))
-    
-    # 反标准化预测结果
-    y_pred = scaler_Y.inverse_transform(y_pred_scaled.reshape(-1, 1)).flatten()
 
-    transformer_rmse = math.sqrt(mean_squared_error(test_Y.ravel(), y_pred.ravel()))
+    # 使用标准化后的预测结果计算RMSE
+    transformer_rmse = math.sqrt(mean_squared_error(test_Y_scaled.ravel(), y_pred_scaled.ravel()))
 
     # early stop
     if transformer_rmse < 1e-10:
@@ -504,9 +502,8 @@ def main(filename=None, seed=8346):
     
     # 计算测试集MSE - 使用标准化的测试数据
     test_predictions_scaled = [func(*row) for row in test_X_scaled]
-    # 反标准化预测结果
-    test_predictions = scaler_Y.inverse_transform(np.array(test_predictions_scaled).reshape(-1, 1)).flatten()
-    test_mse = mean_squared_error(test_Y, test_predictions)
+    # 使用标准化后的预测结果计算MSE
+    test_mse = mean_squared_error(test_Y_scaled, test_predictions_scaled)
     
     return {
         'test_mse': test_mse,
