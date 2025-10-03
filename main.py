@@ -90,19 +90,21 @@ def get_res_transformer(X, y, BFGS, first_call=False):
     fitfunc = partial(model.fitfunc, cfg_params=params_fit)
 
     if first_call:
-
-        _ = fitfunc(X, y, BFGS=True)
+        with suppress_stdout():
+            _ = fitfunc(X, y, BFGS=True)
 
         final_equation = model.get_equation()
 
-        prefix_symbol_list = fitfunc(X, y, BFGS=False)
+        with suppress_stdout():
+            prefix_symbol_list = fitfunc(X, y, BFGS=False)
 
         return prefix_symbol_list, final_equation
 
 
     if BFGS:
         try:
-            prefix_symbol_list = fitfunc(X, y, BFGS)
+            with suppress_stdout():
+                prefix_symbol_list = fitfunc(X, y, BFGS)
         except (ValueError, RuntimeError):
             return [None, None]
 
@@ -110,7 +112,8 @@ def get_res_transformer(X, y, BFGS, first_call=False):
 
         return prefix_symbol_list, final_equation, model.total_c, model.total_bfgs_time
     else:
-        prefix_symbol_list = fitfunc(X, y, BFGS)
+        with suppress_stdout():
+            prefix_symbol_list = fitfunc(X, y, BFGS)
         return prefix_symbol_list
 
 
