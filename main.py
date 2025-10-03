@@ -355,7 +355,7 @@ def mutate(individual, pset, creator, toolbox, p_subtree=0.05):
         return gp.mutUniform(individual, expr=toolbox.expr_mut, pset=pset)
 
 
-def main(filename=None, seed=8346, data_count=10, generations=2, population_size=3):
+def main(filename=None, seed=8346, data_count=1000, generations=200, population_size=300):
     # 默认使用指定的数据集
     if filename is None:
         file_path = "/home/xyh/pggp/dataset/Feynman_with_units/I.6.2"
@@ -439,7 +439,7 @@ def main(filename=None, seed=8346, data_count=10, generations=2, population_size
 
     # set toolbox
     toolbox = base.Toolbox()
-    toolbox.register("expr", gp.genHalfAndHalf, pset=pset, min_=2, max_=4)
+    toolbox.register("expr", gp.genHalfAndHalf, pset=pset, min_=2, max_=6)
     toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
     toolbox.register("expr_mut", gp.genFull, min_=0, max_=2)
@@ -449,8 +449,8 @@ def main(filename=None, seed=8346, data_count=10, generations=2, population_size
     toolbox.register("select", tools.selTournament, tournsize=3)
     toolbox.register("mate", gp.cxOnePoint)
     toolbox.register("mutate", mutate, pset=pset, creator=creator, toolbox=toolbox, p_subtree=0.025)
-    toolbox.decorate("mate", gp.staticLimit(key=operator.attrgetter("height"), max_value=10))
-    toolbox.decorate("mutate", gp.staticLimit(key=operator.attrgetter("height"), max_value=10))
+    toolbox.decorate("mate", gp.staticLimit(key=operator.attrgetter("height"), max_value=17))
+    toolbox.decorate("mutate", gp.staticLimit(key=operator.attrgetter("height"), max_value=17))
 
     np.random.seed(seed)
     random.seed(seed)
