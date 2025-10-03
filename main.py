@@ -355,7 +355,7 @@ def mutate(individual, pset, creator, toolbox, p_subtree=0.05):
         return gp.mutUniform(individual, expr=toolbox.expr_mut, pset=pset)
 
 
-def main(filename=None, seed=8346):
+def main(filename=None, seed=8346, data_count=10, generations=2, population_size=3):
     # 默认使用指定的数据集
     if filename is None:
         file_path = "/home/xyh/pggp/dataset/Feynman_with_units/I.6.2"
@@ -375,7 +375,7 @@ def main(filename=None, seed=8346):
         with open(file_path, 'r') as file:
             count = 0
             for line in file:
-                if count >= 1000:  # 只读取前1000条数据
+                if count >= data_count:  # 读取指定条数的数据
                     break
                 
                 data = line.strip().split()
@@ -455,7 +455,7 @@ def main(filename=None, seed=8346):
     np.random.seed(seed)
     random.seed(seed)
 
-    pop = toolbox.population(n=300)
+    pop = toolbox.population(n=population_size)
 
 
     hof = tools.HallOfFame(1)
@@ -483,7 +483,7 @@ def main(filename=None, seed=8346):
     hof.update(pop)
     
     # 进化过程
-    for gen in range(200):  # ngen=200
+    for gen in range(generations):
         # 选择
         offspring = toolbox.select(pop, len(pop))
         offspring = list(map(toolbox.clone, offspring))
@@ -541,5 +541,9 @@ def main(filename=None, seed=8346):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Transformer-GP')
     parser.add_argument('--dataset_name', type=str, default=None, help='数据集名称，如果不指定则使用默认的Feynman数据集')
+    parser.add_argument('--data_count', type=int, default=10, help='使用的数据条数 (默认: 10)')
+    parser.add_argument('--generations', type=int, default=200, help='遗传算法迭代次数 (默认: 200)')
+    parser.add_argument('--population_size', type=int, default=300, help='种群大小 (默认: 300)')
+    parser.add_argument('--seed', type=int, default=8346, help='随机种子 (默认: 8346)')
     args = parser.parse_args()
-    main(args.dataset_name)
+    main(args.dataset_name, args.seed, args.data_count, args.generations, args.population_size)
